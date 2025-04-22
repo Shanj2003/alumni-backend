@@ -3,18 +3,21 @@ const cors = require('cors');
 
 const app = express();
 
-// ✅ CORS Middleware: Allow requests from any frontend (dev-safe)
+// ✅ CORS: Allow x-auth & requests from frontend
 app.use(cors({
-  origin: '*', // 🚧 Open for dev. Change to 'http://localhost:3000' later if needed
+  origin: ['http://localhost:3000', 'http://localhost:4000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'x-auth', 'Authorization'],
+  credentials: true,
 }));
 
-// ✅ Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ GET: Sample Admin Stats
+// ✅ Mock token
+const MOCK_TOKEN = 'fake-token-123';
+
+// ✅ ADMIN Stats
 app.get('/admin/stats', (req, res) => {
   res.json({
     upcomingEvents: 2,
@@ -23,52 +26,57 @@ app.get('/admin/stats', (req, res) => {
     alumni: ["2020", "2021", "2022"],
     jobs: ["TCS", "Infosys", "Wipro"],
     interviews: ["Google", "Amazon", "Facebook"],
-    tickets: [{ count: 4 }]
+    tickets: [{ count: 4 }],
   });
 });
 
-// ✅ POST: Student Registration
+// ✅ POST: Student Register
 app.post('/student/register', (req, res) => {
-  const studentData = req.body;
-  console.log("✅ Student data received:", studentData);
-
-  const { firstName, lastName, email } = studentData;
+  const { firstName, lastName, email } = req.body;
   if (!firstName || !lastName || !email) {
-    return res.status(400).json({ error: "Required fields are missing: firstName, lastName, or email." });
+    return res.status(400).json({ error: "Missing student details." });
   }
-
   res.status(200).json({
     message: "🎉 Student registered successfully!",
-    student: studentData
+    student: req.body,
   });
 });
 
-// ✅ POST: Alumni Registration
+// ✅ POST: Alumni Register
 app.post('/alumni/register', (req, res) => {
-  const alumniData = req.body;
-  console.log("✅ Alumni data received:", alumniData);
-
-  const { firstName, lastName, email } = alumniData;
+  const { firstName, lastName, email } = req.body;
   if (!firstName || !lastName || !email) {
-    return res.status(400).json({ error: "Required fields are missing: firstName, lastName, or email." });
+    return res.status(400).json({ error: "Missing alumni details." });
   }
-
   res.status(200).json({
     message: "🎉 Alumni registered successfully!",
-    alumni: alumniData
+    alumni: req.body,
   });
 });
 
-// ✅ POST: Login simulation
+// ✅ POST: Alumni Login
 app.post('/alumni/login', (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
-    return res.status(400).json({ error: "Missing email or password." });
+    return res.status(400).json({ err: "Missing email or password." });
   }
-  res.status(200).json({ message: "✅ Login successful", email });
+
+  res.set('x-auth', MOCK_TOKEN);
+  res.status(200).json({ message: "✅ Alumni login successful", email });
 });
 
-// ✅ GET: Colleges
+// ✅ POST: Student Login
+app.post('/student/login', (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ err: "Missing email or password." });
+  }
+
+  res.set('x-auth', MOCK_TOKEN);
+  res.status(200).json({ message: "✅ Student login successful", email });
+});
+
+// ✅ GET: College List
 app.get('/college', (req, res) => {
   res.status(200).json([
     { id: "clg1", name: "ABC College" },
@@ -76,13 +84,50 @@ app.get('/college', (req, res) => {
   ]);
 });
 
-// ✅ Global Error Handler
+// ✅ GET: Alumni Stats (Protected)
+app.get('/alumni/stats', (req, res) => {
+  const token = req.headers['x-auth'];
+  if (token !== MOCK_TOKEN) {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
+  res.json({
+    totalAlumni: 100,
+    locations: ["India", "USA", "Canada"],
+    industries: ["IT", "Finance", "Education"]
+  });
+});
+
+// ✅ GET: Alumni Interviews (Protected)
+app.get('/alumni/interviews', (req, res) => {
+  const token = req.headers['x-auth'];
+  if (token !== MOCK_TOKEN) {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
+  res.json([
+    { id: 1, company: "Google", role: "SDE", year: "2023" },
+    { id: 2, company: "Amazon", role: "Support", year: "2022" }
+  ]);
+});
+
+// ✅ GET: Alumni List (Protected)
+app.get('/alumni/alumni', (req, res) => {
+  const token = req.headers['x-auth'];
+  if (token !== MOCK_TOKEN) {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
+  res.json([
+    { name: "Alice", batch: "2020", company: "TCS" },
+    { name: "Bob", batch: "2021", company: "Wipro" }
+  ]);
+});
+
+// ✅ Error Handling
 app.use((err, req, res, next) => {
   console.error("❌ Server error:", err.stack);
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-// ✅ Port setup for local & cloud platforms
+// ✅ Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Server is running on port ${PORT}`);
